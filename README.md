@@ -1,0 +1,1 @@
+# AI_lecture_note_genenrator_public
