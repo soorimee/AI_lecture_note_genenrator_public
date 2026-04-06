@@ -6,7 +6,7 @@
     <title>공개용 오디오 분할 & AI 노트 생성기</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
-    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+    
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -31,8 +31,22 @@
             </svg>
         </div>
         <h1 class="text-2xl font-bold text-gray-800">의대생 전용 AI 도구</h1>
-        <p class="text-gray-500">이 서비스는 허가된 사람들만 이용 가능합니다.<br>로그인 후 이용해 주세요.</p>
-        <div class="py-4" data-netlify-identity-button></div>
+        <p class="text-gray-500 text-sm mb-6">이 서비스는 허가된 동기들만 이용 가능합니다.<br>부여받은 계정으로 로그인해 주세요.</p>
+        
+        <form id="firebaseLoginForm" class="space-y-4 text-left">
+            <div>
+                <input type="email" id="loginEmail" placeholder="이메일 주소" required
+                    class="block w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+            </div>
+            <div>
+                <input type="password" id="loginPassword" placeholder="비밀번호" required
+                    class="block w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+            </div>
+            <p id="loginErrorMessage" class="text-red-500 text-xs hidden text-center"></p>
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-sm">
+                로그인
+            </button>
+        </form>
     </div>
 
     <div id="main-content" class="bg-white rounded-3xl shadow-xl w-full max-w-lg p-6 sm:p-8 space-y-6">
@@ -45,7 +59,7 @@
             <h1 class="text-2xl font-bold text-gray-800">오디오 분할 & AI 노트 생성 서비스</h1>
             <div class="flex items-center justify-center gap-2">
                 <p class="text-sm text-gray-500">최신 Gemini 엔진 탑재 (공용 모드)</p>
-                <button onclick="window.netlifyIdentity.logout()" class="text-xs text-red-400 hover:underline">[로그아웃]</button>
+                <button id="firebaseLogoutBtn" class="text-xs text-red-400 hover:underline cursor-pointer">[로그아웃]</button>
             </div>
         </div>
 
@@ -104,22 +118,67 @@
         </div>
     </div>
 
-    <script>
-        // --- Netlify Identity 제어 스크립트 ---
-        function handleUserState(user) {
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+        // 🔥 여기에 Firebase 콘솔에서 복사한 설정을 붙여넣으세요.
+        const firebaseConfig = {
+            apiKey: "AIzaSyAsVUHLS6sEbol_ChhQEkgM8XJqn44Gku0",
+            authDomain: "ai-note-generator-d8178.firebaseapp.com",
+            projectId: "ai-note-generator-d8178",
+            storageBucket: "ai-note-generator-d8178.firebasestorage.app",
+            messagingSenderId: "174063925999",
+            appId: "1:174063925999:web:4cc68529cf770e3bf8f91a",
+            measurementId: "G-VQZVZLKWC7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // UI 요소
+        const loginForm = document.getElementById('firebaseLoginForm');
+        const loginEmail = document.getElementById('loginEmail');
+        const loginPassword = document.getElementById('loginPassword');
+        const errorMsg = document.getElementById('loginErrorMessage');
+        const logoutBtn = document.getElementById('firebaseLogoutBtn');
+
+        // 로그인 상태 감지 (기존 handleUserState 로직 대체)
+        onAuthStateChanged(auth, (user) => {
             if (user) {
                 document.body.classList.add('logged-in');
             } else {
                 document.body.classList.remove('logged-in');
             }
-        }
+        });
 
-        window.netlifyIdentity.on("init", user => handleUserState(user));
-        window.netlifyIdentity.on("login", user => { handleUserState(user); window.netlifyIdentity.close(); });
-        window.netlifyIdentity.on("logout", () => { handleUserState(null); location.reload(); });
+        // 로그인 처리
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMsg.classList.add('hidden');
+            
+            try {
+                await signInWithEmailAndPassword(auth, loginEmail.value, loginPassword.value);
+                // 로그인 성공시 onAuthStateChanged가 화면을 전환해 줌
+            } catch (error) {
+                console.error(error);
+                errorMsg.classList.remove('hidden');
+                errorMsg.innerText = "이메일 또는 비밀번호가 올바르지 않습니다.";
+            }
+        });
 
-        // --- 기존 기능 스크립트 시작 ---
-        // (제공해주신 로직 그대로 유지)
+        // 로그아웃 처리
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                location.reload(); // 로그아웃 후 초기화
+            } catch (error) {
+                console.error("로그아웃 실패:", error);
+            }
+        });
+    </script>
+
+    <script>
         const SECRET_PROMPT = `[역할 및 목표]
 - 당신은 의과대학 본과 수석 필기 담당자입니다.
 - 목표: 제공된 '오디오 파일(해당 차시의 녹취록)'만을 정밀 분석하여 시험 대비용 강의 노트를 작성합니다.
@@ -158,12 +217,11 @@
     - "국시", "시험", "야마", "족보", "중요하다" 언급 시 **(★국시/시험 출제 유력)** 태그를 붙이세요.
 
 6. **서식 규칙:**
-    - 화학식, 이온 등은 LaTeX($) 없이 일반 텍스트로 표기하세요. (예: Ca2+, HCO3-)
+    - 화학식, 이온 등은 일반 텍스트로 표기하세요. (예: Ca2+, HCO3-)
     - 가독성을 위해 개조식(Bullet point)을 적극 활용하세요.
 
 [출력 형식]
 # [제공된 파일명에 기반한 년월일, 교시, 차시] 녹취록 기반 강의 정리
-(예시: 제공된 파일명이 '0402 이환진pf 1교시 1차시 (0분~30분).m4a' 일 경우 -> # 4월 2일 1교시 1차시 (0분~30분) 녹취록 기반 강의 정리)
 
 **1. [강의 목차]**
 
@@ -206,11 +264,9 @@
 
         let globalPdfData = null;
 
-        // 브라우저에 저장된 API 키 불러오기
         const savedApiKey = localStorage.getItem('gemini_api_key');
         if (savedApiKey) apiKeyInput.value = savedApiKey;
 
-        // API 키 입력 시 자동 저장
         apiKeyInput.addEventListener('change', () => {
             localStorage.setItem('gemini_api_key', apiKeyInput.value.trim());
         });
@@ -367,7 +423,6 @@
         });
 
         // --- 4. UI 렌더링 및 노트 생성 ---
-        
         function addResultItem(url, filename, audioBlob, index) {
             const itemDiv = document.createElement('div');
             itemDiv.className = "flex flex-col bg-gray-50 border border-gray-200 rounded-xl overflow-hidden";
@@ -453,7 +508,6 @@
                     const bestModelName = await getBestWorkingModel(apiKey);
 
                     noteStatus.innerText = `5/5: 🧠 ${bestModelName.replace('models/', '')} 모델이 노트를 작성 중입니다!`;
-                    // filename을 파라미터로 넘겨 제목 생성의 기준을 제공합니다.
                     const markdownResult = await generateNotesWithGemini(bestModelName, audioData.uri, globalPdfData ? globalPdfData.uri : null, apiKey, filename);
 
                     noteStatus.innerText = '✅ 노트 작성이 완료되었습니다!';
@@ -493,7 +547,6 @@
         }
 
         // --- 5. Gemini API 통신 함수들 ---
-
         async function getBestWorkingModel(apiKey) {
             const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
             if (!res.ok) throw new Error("모델 목록을 불러올 수 없습니다. API 키가 정확한지 확인해주세요.");
@@ -501,31 +554,17 @@
             const data = await res.json();
             const validModels = data.models.filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'));
             
-            // [1순위] 상세한 답변과 안정성: Gemini 2.5 Flash (RPM 2/5 확인됨)
             let best = validModels.find(m => m.name === 'models/gemini-2.5-flash');
-            
-            // [2순위] 2.5세대의 빠른 응답 버전: Gemini 2.5 Flash-Lite (RPM 0/10 확인됨)
             if (!best) best = validModels.find(m => m.name === 'models/gemini-2.5-flash-lite');
-            
-            // [3순위] 최신 지능(요약 성향 있음): Gemini 3 Flash (RPM 0/5 확인됨)
             if (!best) {
                 best = validModels.find(m => m.name === 'models/gemini-3-flash-preview') || 
                        validModels.find(m => m.name === 'models/gemini-3-flash');
             }
-            
-            // [4순위] 최신 초경량 모델: Gemini 3.1 Flash-Lite (RPM 0/15 확인됨)
             if (!best) best = validModels.find(m => m.name === 'models/gemini-3.1-flash-lite');
-            
-            // [5순위] 예외 상황 대비 고성능 오픈 모델: Gemma 3 27B (RPM 0/30 확인됨)
             if (!best) best = validModels.find(m => m.name === 'models/gemma-3-27b');
-            
-            // [6순위] Gemini 3.1 Pro (할당량이 생길 경우를 대비해 마지막 순위 배치)
             if (!best) best = validModels.find(m => m.name === 'models/gemini-3.1-pro');
             
-            // 최종 예외 처리 (1.5 버전은 포함하지 않음)
             if (!best) throw new Error("현재 API 키로 사용할 수 있는 유효한 모델이 없습니다.");
-
-            
             return best.name; 
         }
 
@@ -659,8 +698,6 @@
             startBtn.disabled = false;
             globalPdfData = null;
         });
-
     </script>
-    
-    </body>
+</body>
 </html>
