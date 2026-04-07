@@ -81,6 +81,11 @@
                 <input type="file" id="pdfFile" accept="application/pdf" 
                     class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-gray-200 file:text-gray-700 hover:file:bg-gray-300 transition-colors cursor-pointer border border-gray-200 rounded-xl p-1 bg-white">
             </div>
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1">4. 추가 요청사항 (선택)</label>
+                <input type="text" id="customPrompt" placeholder="예: 약물 작용 기전 위주로 정리해줘" 
+                    class="block w-full text-sm text-gray-700 border border-gray-200 rounded-xl p-2 px-3 bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+            </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -250,6 +255,9 @@
         const apiKeyInput = document.getElementById('apiKeyInput');
         const fileInput = document.getElementById('audioFile');
         const pdfFileInput = document.getElementById('pdfFile');
+        // ★새로 추가된 요소 참조★
+        const customPromptInput = document.getElementById('customPrompt');
+        
         const splitMinutesInput = document.getElementById('splitMinutes');
         const overlapMinutesInput = document.getElementById('overlapMinutes');
         const startBtn = document.getElementById('startBtn');
@@ -305,6 +313,7 @@
             startBtn.disabled = true;
             fileInput.disabled = true;
             pdfFileInput.disabled = true;
+            customPromptInput.disabled = true; // 분할 시작 시 추가 입력칸도 비활성화
             statusArea.classList.remove('hidden');
             statusArea.classList.add('flex');
             resultArea.classList.add('hidden');
@@ -477,6 +486,9 @@
                     return;
                 }
 
+                // ★버튼 클릭 시점에 입력된 추가 요청사항을 가져옵니다★
+                const customPromptValue = customPromptInput.value.trim();
+
                 aiBtn.disabled = true;
                 aiBtn.classList.replace('bg-indigo-600', 'bg-gray-400');
                 noteArea.classList.remove('hidden');
@@ -508,7 +520,8 @@
                     const bestModelName = await getBestWorkingModel(apiKey);
 
                     noteStatus.innerText = `5/5: 🧠 ${bestModelName.replace('models/', '')} 모델이 노트를 작성 중입니다!`;
-                    const markdownResult = await generateNotesWithGemini(bestModelName, audioData.uri, globalPdfData ? globalPdfData.uri : null, apiKey, filename);
+                    // ★함수 호출 시 customPromptValue를 넘겨줍니다★
+                    const markdownResult = await generateNotesWithGemini(bestModelName, audioData.uri, globalPdfData ? globalPdfData.uri : null, apiKey, filename, customPromptValue);
 
                     noteStatus.innerText = '✅ 노트 작성이 완료되었습니다!';
                     noteStatus.classList.remove('animate-pulse');
@@ -635,12 +648,19 @@
             }
         }
 
-        async function generateNotesWithGemini(modelName, audioUri, pdfUri, apiKey, currentFileName) {
+        // ★매개변수에 customPromptText 추가★
+        async function generateNotesWithGemini(modelName, audioUri, pdfUri, apiKey, currentFileName, customPromptText) {
             const url = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
             
             const parts = [];
 
-            parts.push({ text: `[현재 작업 중인 파일명 (이 파일명을 기준으로 제목을 생성하세요)]: ${currentFileName}\n\n` + SECRET_PROMPT });
+            // ★기존 프롬프트에 추가 요청사항 결합★
+            let finalPrompt = `[현재 작업 중인 파일명 (이 파일명을 기준으로 제목을 생성하세요)]: ${currentFileName}\n\n` + SECRET_PROMPT;
+            if (customPromptText) {
+                finalPrompt += `\n\n[★이번 강의 특별 추가 요청사항★]\n- ${customPromptText}\n(위의 추가 요청사항을 최우선으로 반영하여 노트를 작성하세요.)`;
+            }
+
+            parts.push({ text: finalPrompt });
             parts.push({ fileData: { mimeType: "audio/mp4", fileUri: audioUri } });
 
             if (pdfUri) {
@@ -687,8 +707,10 @@
         restartBtn.addEventListener('click', () => {
             fileInput.value = '';
             pdfFileInput.value = '';
+            customPromptInput.value = ''; // 리셋 시 추가 요청사항도 초기화
             fileInput.disabled = false;
             pdfFileInput.disabled = false;
+            customPromptInput.disabled = false; // 리셋 시 다시 활성화
             statusArea.classList.add('hidden');
             statusArea.classList.remove('flex');
             resultArea.classList.add('hidden');
