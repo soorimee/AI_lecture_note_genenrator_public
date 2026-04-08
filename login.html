@@ -1,1 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인 - 수림 AI 통합 서비스</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f3f4f6;
+            -webkit-font-smoothing: antialiased;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
 
+    <div id="login-container" class="bg-white rounded-3xl shadow-xl w-full max-w-lg p-10 text-center space-y-6">
+        <div class="bg-indigo-100 text-indigo-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+            </svg>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-800">수림 AI 통합 서비스</h1>
+        <p class="text-gray-500 text-sm mb-6">이 서비스는 허가된 사람들만 이용 가능합니다.<br>권한을 부여받은 계정으로 로그인해 주세요.</p>
+        
+        <form id="firebaseLoginForm" class="space-y-4 text-left">
+            <div>
+                <input type="email" id="loginEmail" placeholder="이메일 주소" required
+                    class="block w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+            </div>
+            <div>
+                <input type="password" id="loginPassword" placeholder="비밀번호" required
+                    class="block w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+            </div>
+            <p id="loginErrorMessage" class="text-red-500 text-xs hidden text-center"></p>
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-sm">
+                로그인
+            </button>
+        </form>
+    </div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+        // 🔥 Firebase 설정 (기존 정보 그대로 유지)
+        const firebaseConfig = {
+            apiKey: "AIzaSyAsVUHLS6sEbol_ChhQEkgM8XJqn44Gku0", /* ⚠️ 주의: 실제 사용 시 Firebase 콘솔에서 발급받은 apiKey를 꼭 넣으세요! */
+            authDomain: "ai-note-generator-d8178.firebaseapp.com",
+            projectId: "ai-note-generator-d8178",
+            storageBucket: "ai-note-generator-d8178.firebasestorage.app",
+            messagingSenderId: "174063925999",
+            appId: "1:174063925999:web:4cc68529cf770e3bf8f91a",
+            measurementId: "G-VQZVZLKWC7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        const loginForm = document.getElementById('firebaseLoginForm');
+        const loginEmail = document.getElementById('loginEmail');
+        const loginPassword = document.getElementById('loginPassword');
+        const errorMsg = document.getElementById('loginErrorMessage');
+
+        // 🌟 핵심 마법: 로그인 상태 확인 및 페이지 이동 (Redirect)
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // 이미 로그인한 사람이 이 페이지에 오면, 자동으로 메인 메뉴(index.html)로 튕겨 보냅니다.
+                window.location.href = "index.html"; 
+            }
+        });
+
+        // 로그인 버튼 눌렀을 때의 동작
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMsg.classList.add('hidden'); // 에러 메시지 초기화
+            
+            try {
+                // 아이디와 비밀번호가 맞는지 Firebase에 물어봅니다.
+                await signInWithEmailAndPassword(auth, loginEmail.value, loginPassword.value);
+                // 로그인이 성공하면, 위에 작성해둔 onAuthStateChanged 요원이 알아서 index.html로 보내줍니다.
+            } catch (error) {
+                console.error(error);
+                errorMsg.classList.remove('hidden'); // 에러 메시지 보여주기
+                errorMsg.innerText = "이메일 또는 비밀번호가 올바르지 않습니다.";
+            }
+        });
+    </script>
+</body>
+</html>
