@@ -20,7 +20,7 @@
         #main-content { display: none; }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4">
+<body class="min-h-screen flex items-center justify-center p-4 relative">
 
     <div id="main-content" class="bg-white rounded-3xl shadow-xl w-full max-w-lg p-6 sm:p-8 space-y-6">
         
@@ -39,7 +39,8 @@
                 <h1 class="text-2xl font-bold text-gray-800">오디오 수업노트 생성</h1>
                 <p class="text-xs text-gray-500">최신 Gemini 엔진 탑재</p>
             </div>
-            <div class="w-6"></div> </div>
+            <div class="w-6"></div> 
+        </div>
 
         <div class="space-y-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
             <div>
@@ -99,13 +100,15 @@
         </div>
     </div>
 
+    <div id="toastContainer" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
-        // 🔥 Firebase 설정 (기존 정보 유지)
+        // 🔥 Firebase 설정 (수림님의 실제 API Key 입력 필요)
         const firebaseConfig = {
-            apiKey: "AIzaSyAsVUHLS6sEbol_ChhQEkgM8XJqn44Gku0", // 실제 API Key 입력 필요
+            apiKey: "AIzaSyAsVUHLS6sEbol_ChhQEkgM8XJqn44Gku0", 
             authDomain: "ai-note-generator-d8178.firebaseapp.com",
             projectId: "ai-note-generator-d8178",
             storageBucket: "ai-note-generator-d8178.firebasestorage.app",
@@ -117,20 +120,31 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
 
-        // 🌟 보안 요원: 로그인 체크
+        // 로그인 체크
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // 로그인 된 상태면 화면을 보여줌
                 document.getElementById('main-content').style.display = 'block';
             } else {
-                // 로그인이 안 되어 있으면 로그인 페이지로 보냄
                 window.location.href = "login.html";
             }
         });
     </script>
 
     <script>
-        // --- [절대 수정 금지] 기존 프롬프트 ---
+        // 알림 메시지 띄우는 함수
+        function showMessage(msg, isError = true) {
+            const toast = document.createElement('div');
+            toast.className = `px-6 py-3 rounded-xl shadow-lg text-white font-bold text-sm transition-all duration-300 transform translate-y-0 opacity-100 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+            toast.innerText = msg;
+            document.getElementById('toastContainer').appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.replace('translate-y-0', '-translate-y-4');
+                toast.classList.replace('opacity-100', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
         const SECRET_PROMPT = `[역할 및 목표]
 - 당신은 의과대학 본과 수석 필기 담당자입니다.
 - 목표: 제공된 '오디오 파일(해당 차시의 녹취록)'만을 정밀 분석하여 시험 대비용 강의 노트를 작성합니다.
@@ -163,6 +177,7 @@
 4. **(★중요) 교수님 예제/가정 상황 포착:**
     - 교수님이 "만약에 문제를 이렇게 낸다면~", "이런 경우에는 이렇게 해야겠지?" 처럼 구체적인 예시나 상황을 가정하여 설명하는 부분을 절대 놓치지 마세요.
     - 해당 내용은 **(★교수님 예제/상황 가정)** 태그를 붙여 별도로 눈에 띄게 서술하세요.
+    - "이렇게 말하면 틀린 말이겠죠?"라는 뉘앙스로 말씀하시는 부분을 반드시 인지하여 중요 표시 해주세요.
 
 5. **중요도 표기:**
     - 반복 설명된 내용은 **(★반복 강조)** 태그와 함께 굵게 표시하세요.
@@ -190,7 +205,6 @@
 - **(★교수님 예제/상황 가정):** (문제 출제 예시, 상황 설명)
 - **(★시험 포인트):** (국시/시험 관련 언급)`;
 
-        // --- 기존 로직 (FFmpeg, API 호출 등) - 절대 수정 없음 ---
         const { createFFmpeg, fetchFile } = FFmpeg;
         const ffmpeg = createFFmpeg({
             corePath: 'https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js',
@@ -215,6 +229,8 @@
         const restartBtn = document.getElementById('restartBtn');
 
         let globalPdfData = null;
+
+        // API 키 저장 및 불러오기
         const savedApiKey = localStorage.getItem('gemini_api_key');
         if (savedApiKey) apiKeyInput.value = savedApiKey;
         apiKeyInput.addEventListener('change', () => {
@@ -229,156 +245,437 @@
             return new Promise((resolve, reject) => {
                 const audio = new Audio(URL.createObjectURL(file));
                 audio.onloadedmetadata = () => resolve(audio.duration);
-                audio.onerror = () => reject("오디오 길이를 확인할 수 없습니다.");
+                audio.onerror = () => reject("오디오 길이를 확인할 수 없습니다. 기기를 재부팅하거나 앱을 껐다 켜보세요.");
             });
         };
 
-        // --- 이하 오디오 분할 및 AI 호출 로직 전체 (기존 코드 그대로 복사됨) ---
+        // --- 오디오 분할 로직 ---
         startBtn.addEventListener('click', async () => {
             const file = fileInput.files[0];
-            if (!file) { alert('파일을 선택해주세요.'); return; }
+            if (!file) {
+                showMessage('먼저 오디오 파일을 선택해주세요.');
+                return;
+            }
+
             const segmentMinutes = parseInt(splitMinutesInput.value) || 30;
             const overlapMinutes = parseInt(overlapMinutesInput.value) || 2;
+
+            if (segmentMinutes <= overlapMinutes) {
+                showMessage('분할 단위가 겹치는 시간보다 길어야 합니다.');
+                return;
+            }
+
             const apiKey = apiKeyInput.value.trim();
             if (apiKey) localStorage.setItem('gemini_api_key', apiKey);
 
             startBtn.disabled = true;
+            fileInput.disabled = true;
+            pdfFileInput.disabled = true;
+            customPromptInput.disabled = true;
             statusArea.classList.remove('hidden');
             statusArea.classList.add('flex');
             resultArea.classList.add('hidden');
             downloadList.innerHTML = '';
+            spinner.classList.remove('hidden');
+            logText.innerText = '';
+            globalPdfData = null; 
 
             try {
-                statusText.innerText = '오디오 분석 중...';
+                statusText.innerText = '오디오 길이 분석 중...';
                 const totalDurationSec = await getAudioDuration(file);
-                if (!ffmpeg.isLoaded()) await ffmpeg.load();
+                
+                if (!ffmpeg.isLoaded()) {
+                    statusText.innerText = '엔진 설정 중... (최초 1회)';
+                    await ffmpeg.load();
+                }
 
                 const fileName = file.name;
                 const lastDotIndex = fileName.lastIndexOf('.');
-                let originalNameWithoutExt = fileName.substring(0, lastDotIndex);
-                let ext = fileName.substring(lastDotIndex + 1);
+                let originalNameWithoutExt = fileName;
+                let ext = 'm4a'; 
+                
+                if (lastDotIndex !== -1) {
+                    originalNameWithoutExt = fileName.substring(0, lastDotIndex);
+                    ext = fileName.substring(lastDotIndex + 1);
+                }
 
-                ffmpeg.FS('writeFile', 'input.'+ext, await fetchFile(file));
+                statusText.innerText = '메모리에 파일 올리는 중...';
+                const inputName = `input.${ext}`;
+                ffmpeg.FS('writeFile', inputName, await fetchFile(file));
 
                 const segmentTimeSec = segmentMinutes * 60;
-                const stepTimeSec = (segmentMinutes - overlapMinutes) * 60;
+                const overlapTimeSec = overlapMinutes * 60;
+                const stepTimeSec = segmentTimeSec - overlapTimeSec;
+
                 let startTimeSec = 0;
                 let segmentIndex = 0;
-                const expectedFiles = [];
+                
+                const ffmpegCommandArgs = ['-i', inputName];
+                const expectedFiles = []; 
 
                 while (startTimeSec < totalDurationSec) {
-                    const outName = `output_${segmentIndex}.${ext}`;
-                    expectedFiles.push({ fileName: outName, startMin: Math.round(startTimeSec/60), endMin: Math.round(Math.min(startTimeSec+segmentTimeSec, totalDurationSec)/60), index: segmentIndex });
-                    await ffmpeg.run('-ss', startTimeSec.toString(), '-t', segmentTimeSec.toString(), '-i', 'input.'+ext, '-c:a', 'aac', '-b:a', '128k', outName);
+                    const currentOutName = `output_${segmentIndex}.${ext}`;
+                    const startMin = Math.round(startTimeSec / 60);
+                    const endMin = Math.round(Math.min(startTimeSec + segmentTimeSec, totalDurationSec) / 60);
+                    
+                    expectedFiles.push({
+                        fileName: currentOutName,
+                        startMin: startMin,
+                        endMin: endMin,
+                        index: segmentIndex
+                    });
+
+                    ffmpegCommandArgs.push('-ss', startTimeSec.toString());
+                    ffmpegCommandArgs.push('-t', segmentTimeSec.toString());
+                    ffmpegCommandArgs.push('-c:a', 'aac');
+                    ffmpegCommandArgs.push('-b:a', '128k');
+                    ffmpegCommandArgs.push(currentOutName);
+
                     startTimeSec += stepTimeSec;
                     segmentIndex++;
                 }
 
-                for (const seg of expectedFiles) {
-                    const data = ffmpeg.FS('readFile', seg.fileName);
-                    const blob = new Blob([data.buffer], { type: 'audio/mp4' });
-                    const url = URL.createObjectURL(blob);
-                    addResultItem(url, `${originalNameWithoutExt} ${seg.index+1}차시 (${seg.startMin}분~${seg.endMin}분).${ext}`, blob, seg.index);
+                statusText.innerHTML = `총 ${expectedFiles.length}개의 구간을 새로 만드는 중...<br><span class="text-xs text-gray-500 font-normal">시간이 조금 걸릴 수 있습니다!</span>`;
+                
+                try {
+                    await ffmpeg.run(...ffmpegCommandArgs);
+                } catch (runError) {
+                    if (runError.message !== 'Program terminated with exit(0)' && runError.message !== 'exit(0)') {
+                        throw runError; 
+                    }
                 }
-                statusText.innerText = '분할 완료!';
-                resultCount.innerText = `${expectedFiles.length}개 파일`;
-                resultArea.classList.remove('hidden');
+
+                statusText.innerText = '결과 파일 정리 및 UI 생성 중...';
+                let filesFound = 0;
+
+                for (const seg of expectedFiles) {
+                    try {
+                        const data = ffmpeg.FS('readFile', seg.fileName);
+                        const blob = new Blob([data.buffer], { type: 'audio/mp4' });
+                        const url = URL.createObjectURL(blob);
+                        
+                        const downloadName = `${originalNameWithoutExt} ${seg.index + 1}차시 (${seg.startMin}분~${seg.endMin}분).${ext}`;
+                        
+                        addResultItem(url, downloadName, blob, seg.index);
+                        
+                        ffmpeg.FS('unlink', seg.fileName);
+                        filesFound++;
+                    } catch (e) {
+                        console.error('해당 구간 파일 생성 실패:', seg.fileName);
+                    }
+                }
+
+                ffmpeg.FS('unlink', inputName);
+
+                if (filesFound > 0) {
+                    spinner.classList.add('hidden');
+                    statusText.innerText = '분할 완료! 🪄 AI 노트 생성 버튼을 눌러보세요.';
+                    statusText.classList.replace('text-indigo-600', 'text-green-600');
+                    logText.innerText = '';
+                    resultCount.innerText = `${filesFound}개 파일`;
+                    resultArea.classList.remove('hidden');
+                } else {
+                    throw new Error('파일 분할 처리 중 문제가 발생했습니다.');
+                }
+
+            } catch (error) {
+                console.error(error);
                 spinner.classList.add('hidden');
-            } catch (e) {
-                statusText.innerText = '오류 발생: ' + e.message;
+                statusText.innerText = '오류가 발생했습니다.';
+                statusText.classList.replace('text-indigo-600', 'text-red-500');
+                logText.innerText = error.message;
+            } finally {
+                startBtn.classList.add('hidden');
             }
         });
 
-        // 결과 항목 추가 및 AI 호출 함수 (기존 로직 동일)
+        // --- UI 렌더링 및 노트 생성 ---
         function addResultItem(url, filename, audioBlob, index) {
             const itemDiv = document.createElement('div');
             itemDiv.className = "flex flex-col bg-gray-50 border border-gray-200 rounded-xl overflow-hidden";
-            itemDiv.innerHTML = `
+            
+            const controlHtml = `
                 <div class="flex items-center justify-between p-3">
-                    <span class="text-sm font-medium text-gray-700 truncate w-2/3">${filename}</span>
+                    <div class="flex items-center gap-3 overflow-hidden w-2/3">
+                        <div class="bg-white p-2 rounded-lg shadow-sm border border-gray-100 text-indigo-500 flex-shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                        </div>
+                        <span class="text-sm font-medium text-gray-700 truncate">${filename}</span>
+                    </div>
                     <div class="flex gap-2">
-                        <a href="${url}" download="${filename}" class="px-2 py-1 bg-white border rounded text-xs">다운로드</a>
-                        <button id="aiBtn_${index}" class="px-2 py-1 bg-indigo-600 text-white rounded text-xs font-bold">✨ AI 노트</button>
+                        <a href="${url}" download="${filename}" class="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg text-sm font-semibold hover:bg-gray-100 transition shadow-sm">
+                            다운로드
+                        </a>
+                        <button id="aiBtn_${index}" class="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition shadow-sm flex items-center gap-1">
+                            <span>✨ AI 노트</span>
+                        </button>
                     </div>
                 </div>
-                <div id="noteArea_${index}" class="hidden border-t p-3 bg-white">
-                    <span id="noteStatus_${index}" class="text-xs font-bold text-indigo-600">준비중...</span>
-                    <textarea id="noteText_${index}" class="hidden w-full h-48 mt-2 p-2 text-sm border rounded bg-gray-50" readonly></textarea>
+            `;
+            
+            const noteAreaHtml = `
+                <div id="noteArea_${index}" class="hidden flex-col border-t border-gray-200 bg-white p-3">
+                    <div class="flex justify-between items-center mb-2">
+                        <span id="noteStatus_${index}" class="text-xs font-bold text-indigo-600 animate-pulse">노트 대기중...</span>
+                        <button id="copyBtn_${index}" class="hidden text-xs bg-gray-100 px-2 py-1 rounded text-gray-600 hover:bg-gray-200 font-bold">복사하기</button>
+                    </div>
+                    <p id="errorDetail_${index}" class="hidden text-xs text-red-500 bg-red-50 p-2 rounded mb-2 break-all"></p>
+                    <textarea id="noteText_${index}" class="hidden w-full h-64 p-3 border border-gray-100 rounded-lg text-sm text-gray-800 bg-gray-50 focus:outline-none resize-y" readonly></textarea>
                 </div>
             `;
+            
+            itemDiv.innerHTML = controlHtml + noteAreaHtml;
             downloadList.appendChild(itemDiv);
 
-            itemDiv.querySelector(`#aiBtn_${index}`).addEventListener('click', async () => {
-                const btn = itemDiv.querySelector(`#aiBtn_${index}`);
-                const status = itemDiv.querySelector(`#noteStatus_${index}`);
-                const text = itemDiv.querySelector(`#noteText_${index}`);
-                const area = itemDiv.querySelector(`#noteArea_${index}`);
+            const aiBtn = itemDiv.querySelector(`#aiBtn_${index}`);
+            const noteArea = itemDiv.querySelector(`#noteArea_${index}`);
+            const noteStatus = itemDiv.querySelector(`#noteStatus_${index}`);
+            const errorDetail = itemDiv.querySelector(`#errorDetail_${index}`);
+            const noteText = itemDiv.querySelector(`#noteText_${index}`);
+            const copyBtn = itemDiv.querySelector(`#copyBtn_${index}`);
 
-                btn.disabled = true;
-                area.classList.remove('hidden');
-                
-                try {
-                    const apiKey = apiKeyInput.value.trim();
-                    if (pdfFileInput.files.length > 0 && !globalPdfData) {
-                        status.innerText = "PDF 분석 중...";
-                        globalPdfData = await uploadAndPollFile(pdfFileInput.files[0], 'application/pdf', apiKey, "Lecture.pdf");
-                    }
-                    status.innerText = "오디오 전송 중...";
-                    const audioData = await uploadAndPollFile(audioBlob, 'audio/mp4', apiKey, "audio.m4a");
-                    await waitForFileActive(audioData.name, apiKey);
-                    
-                    status.innerText = "노트 생성 중...";
-                    const result = await generateNotesWithGemini('models/gemini-1.5-flash', audioData.uri, globalPdfData?.uri, apiKey, filename, customPromptInput.value);
-                    text.value = result;
-                    text.classList.remove('hidden');
-                    status.innerText = "✅ 완료";
-                } catch(e) {
-                    status.innerText = "❌ 오류: " + e.message;
-                    btn.disabled = false;
+            aiBtn.addEventListener('click', async () => {
+                // 내장된 키 대신, 맨 위에서 입력받은 API 키를 가져옵니다.
+                const apiKey = apiKeyInput.value.trim();
+                if(!apiKey) {
+                    showMessage('화면 맨 위에서 Gemini API Key를 먼저 입력해주세요!');
+                    apiKeyInput.focus();
+                    return;
                 }
+
+                const customPromptValue = customPromptInput.value.trim();
+
+                aiBtn.disabled = true;
+                aiBtn.classList.replace('bg-indigo-600', 'bg-gray-400');
+                noteArea.classList.remove('hidden');
+                noteArea.classList.add('flex');
+                errorDetail.classList.add('hidden');
+                noteText.classList.add('hidden');
+                copyBtn.classList.add('hidden');
+                noteStatus.classList.add('animate-pulse');
+                noteStatus.classList.replace('text-red-500', 'text-indigo-600');
+                noteStatus.classList.replace('text-green-600', 'text-indigo-600');
+
+                try {
+                    if (pdfFileInput.files.length > 0 && !globalPdfData) {
+                        noteStatus.innerText = '1/5: 🚀 강의록(PDF) 전송 및 분석 대기중...';
+                        const pdfFile = pdfFileInput.files[0];
+                        globalPdfData = await uploadAndPollFile(pdfFile, 'application/pdf', apiKey, "Lecture_Notes.pdf");
+                    }
+
+                    noteStatus.innerText = '2/5: 🎙️ 오디오 파일 전송 중...';
+                    const audioData = await uploadAndPollFile(audioBlob, 'audio/mp4', apiKey, `Audio_Segment_${index}.m4a`);
+
+                    noteStatus.innerText = '3/5: ⏳ AI가 오디오를 소화하는 중입니다. (보통 10~20초 소요)';
+                    await waitForFileActive(audioData.name, apiKey);
+                    if (globalPdfData) {
+                        await waitForFileActive(globalPdfData.name, apiKey);
+                    }
+
+                    noteStatus.innerText = '4/5: 🔍 사용 가능한 최적의 AI 모델 탐색 중...';
+                    const bestModelName = await getBestWorkingModel(apiKey);
+
+                    noteStatus.innerText = `5/5: 🧠 ${bestModelName.replace('models/', '')} 모델이 노트를 작성 중입니다!`;
+                    
+                    const markdownResult = await generateNotesWithGemini(bestModelName, audioData.uri, globalPdfData ? globalPdfData.uri : null, apiKey, filename, customPromptValue);
+
+                    noteStatus.innerText = '✅ 노트 작성이 완료되었습니다!';
+                    noteStatus.classList.remove('animate-pulse');
+                    noteStatus.classList.replace('text-indigo-600', 'text-green-600');
+                    
+                    noteText.value = markdownResult;
+                    noteText.classList.remove('hidden');
+                    copyBtn.classList.remove('hidden');
+
+                } catch(error) {
+                    console.error(error);
+                    noteStatus.innerText = '❌ 오류가 발생했습니다.';
+                    noteStatus.classList.replace('text-indigo-600', 'text-red-500');
+                    noteStatus.classList.remove('animate-pulse');
+                    
+                    errorDetail.innerText = error.message;
+                    errorDetail.classList.remove('hidden');
+                    
+                    aiBtn.disabled = false;
+                    aiBtn.classList.replace('bg-gray-400', 'bg-indigo-600');
+                }
+            });
+
+            copyBtn.addEventListener('click', () => {
+                noteText.select();
+                document.execCommand('copy');
+                copyBtn.innerText = '복사 완료!';
+                copyBtn.classList.replace('bg-gray-100', 'bg-green-100');
+                copyBtn.classList.replace('text-gray-600', 'text-green-700');
+                setTimeout(() => {
+                    copyBtn.innerText = '복사하기';
+                    copyBtn.classList.replace('bg-green-100', 'bg-gray-100');
+                    copyBtn.classList.replace('text-green-700', 'text-gray-600');
+                }, 2000);
             });
         }
 
-        // --- 공통 API 함수들 (기존 그대로 복제) ---
+        // --- Gemini API 통신 함수들 ---
+        async function getBestWorkingModel(apiKey) {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+            if (!res.ok) throw new Error("모델 목록을 불러올 수 없습니다. API 키가 정확한지 확인해주세요.");
+            
+            const data = await res.json();
+            const validModels = data.models.filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'));
+            
+            let best = validModels.find(m => m.name === 'models/gemini-2.5-flash');
+            if (!best) best = validModels.find(m => m.name === 'models/gemini-2.5-flash-lite');
+            if (!best) {
+                best = validModels.find(m => m.name === 'models/gemini-3-flash-preview') || 
+                       validModels.find(m => m.name === 'models/gemini-3-flash');
+            }
+            if (!best) best = validModels.find(m => m.name === 'models/gemini-3.1-flash-lite');
+            if (!best) best = validModels.find(m => m.name === 'models/gemma-3-27b');
+            if (!best) best = validModels.find(m => m.name === 'models/gemini-3.1-pro');
+            
+            if (!best) throw new Error("현재 API 키로 사용할 수 있는 유효한 모델이 없습니다.");
+            return best.name; 
+        }
+
         async function uploadAndPollFile(blob, mimeType, apiKey, displayName) {
             const initRes = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`, {
                 method: 'POST',
-                headers: { 'X-Goog-Upload-Protocol': 'resumable', 'X-Goog-Upload-Command': 'start', 'X-Goog-Upload-Header-Content-Length': blob.size.toString(), 'X-Goog-Upload-Header-Content-Type': mimeType, 'Content-Type': 'application/json' },
+                headers: {
+                    'X-Goog-Upload-Protocol': 'resumable',
+                    'X-Goog-Upload-Command': 'start',
+                    'X-Goog-Upload-Header-Content-Length': blob.size.toString(),
+                    'X-Goog-Upload-Header-Content-Type': mimeType,
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({ file: { display_name: displayName } })
             });
+
+            if(!initRes.ok) {
+                const err = await initRes.json();
+                throw new Error(`업로드 초기화 실패: ${err.error?.message || '알 수 없는 오류'}`);
+            }
+            
             const uploadUrl = initRes.headers.get('X-Goog-Upload-URL');
-            const uploadRes = await fetch(uploadUrl, { method: 'POST', headers: { 'X-Goog-Upload-Command': 'upload, finalize', 'X-Goog-Upload-Offset': '0', 'Content-Type': mimeType }, body: blob });
+
+            const uploadRes = await fetch(uploadUrl, {
+                method: 'POST',
+                headers: {
+                    'X-Goog-Upload-Command': 'upload, finalize',
+                    'X-Goog-Upload-Offset': '0',
+                    'Content-Type': mimeType
+                },
+                body: blob
+            });
+
+            if(!uploadRes.ok) {
+                const err = await uploadRes.json();
+                throw new Error(`파일 전송 실패: ${err.error?.message || '알 수 없는 오류'}`);
+            }
+            
             const fileInfo = await uploadRes.json();
             return { uri: fileInfo.file.uri, name: fileInfo.file.name };
         }
 
         async function waitForFileActive(fileName, apiKey) {
             let state = 'PROCESSING';
+            let attempts = 0;
+            
             while (state === 'PROCESSING') {
-                await new Promise(r => setTimeout(r, 3000));
+                if (attempts > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                }
+                
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`);
+                if (!res.ok) {
+                    throw new Error('파일 상태를 확인하는 중 오류가 발생했습니다.');
+                }
+                
                 const data = await res.json();
                 state = data.state;
-                if (state === 'FAILED') throw new Error('분석 실패');
+                
+                if (state === 'FAILED') {
+                    throw new Error('구글 서버가 파일을 분석하는 데 실패했습니다. 파일이 손상되었을 수 있습니다.');
+                }
+                attempts++;
+                
+                if (attempts > 60) {
+                    throw new Error('파일 처리 시간이 초과되었습니다.');
+                }
             }
         }
 
         async function generateNotesWithGemini(modelName, audioUri, pdfUri, apiKey, currentFileName, customPromptText) {
-            let finalPrompt = `[파일]: ${currentFileName}\n\n` + SECRET_PROMPT;
-            if (customPromptText) finalPrompt += `\n\n[추가]: ${customPromptText}`;
-            const parts = [{ text: finalPrompt }, { fileData: { mimeType: "audio/mp4", fileUri: audioUri } }];
-            if (pdfUri) parts.push({ text: "PDF 참고", fileData: { mimeType: "application/pdf", fileUri: pdfUri } });
+            const url = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
+            
+            const parts = [];
 
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`, {
+            let finalPrompt = `[현재 작업 중인 파일명 (이 파일명을 기준으로 제목을 생성하세요)]: ${currentFileName}\n\n` + SECRET_PROMPT;
+            if (customPromptText) {
+                finalPrompt += `\n\n[★이번 강의 특별 추가 요청사항★]\n- ${customPromptText}\n(위의 추가 요청사항을 최우선으로 반영하여 노트를 작성하세요.)`;
+            }
+
+            parts.push({ text: finalPrompt });
+            parts.push({ fileData: { mimeType: "audio/mp4", fileUri: audioUri } });
+
+            if (pdfUri) {
+                parts.push({
+                    text: "\n\n[★매우 중요한 추가 지시사항★]\n첨부된 강의록(PDF) 문서는 **오직 '의학 용어 철자(스펠링) 확인용 사전'**으로만 사용하세요. 절대로 PDF 문서에 적혀있지만 '방금 들려준 오디오(해당 차시)'에서 교수님이 직접 말하지 않은 내용을 강의 노트에 추가해서는 안 됩니다. 노트의 내용은 100% 오디오 파일의 음성에만 기반해야 합니다."
+                });
+                parts.push({ fileData: { mimeType: "application/pdf", fileUri: pdfUri } });
+            }
+
+            const payload = {
+                contents: [{ parts: parts }],
+                safetySettings: [
+                    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+                    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" }
+                ]
+            };
+
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: parts }] })
+                body: JSON.stringify(payload)
             });
+
+            if(!res.ok) {
+                const errData = await res.json();
+                if (res.status === 429) {
+                    throw new Error("무료 API 요청 한도를 초과했습니다. 1~2분 뒤에 다시 시도해주세요.");
+                }
+                throw new Error(`API 오류: ${errData.error?.message || '알 수 없는 내부 오류'}`);
+            }
+
             const data = await res.json();
-            return data.candidates[0].content.parts[0].text;
+            
+            try {
+                return data.candidates[0].content.parts[0].text;
+            } catch (e) {
+                throw new Error('AI가 올바른 응답을 반환하지 않았습니다. 내용이 안전 필터에 걸렸을 수 있습니다.');
+            }
         }
 
-        restartBtn.addEventListener('click', () => location.reload());
+        // --- 리셋 ---
+        restartBtn.addEventListener('click', () => {
+            fileInput.value = '';
+            pdfFileInput.value = '';
+            customPromptInput.value = ''; 
+            fileInput.disabled = false;
+            pdfFileInput.disabled = false;
+            customPromptInput.disabled = false;
+            statusArea.classList.add('hidden');
+            statusArea.classList.remove('flex');
+            resultArea.classList.add('hidden');
+            statusText.classList.replace('text-green-600', 'text-indigo-600');
+            statusText.classList.replace('text-red-500', 'text-indigo-600');
+            startBtn.classList.remove('hidden');
+            startBtn.disabled = false;
+            globalPdfData = null;
+        });
     </script>
 </body>
 </html>
