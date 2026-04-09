@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>퀴즈 복습하기 - 수림 AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif; 
+            background-color: #f8fafc; 
+            -webkit-font-smoothing: antialiased; 
+        }
+        /* 초기에는 콘텐츠를 숨김 (보안) */
+        #main-content { display: none; }
+        
+        .option-label:hover { transform: translateX(5px); }
+        .option-label { transition: all 0.2s ease; }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 flex justify-center">
+
+    <div id="main-content" class="w-full max-w-4xl space-y-8">
+        
+        <div class="flex justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+            <a href="index.html" class="text-gray-400 hover:text-emerald-600 transition-colors">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+            </a>
+            <div class="text-center">
+                <h1 class="text-xl font-bold text-gray-800">퀴즈 복습 모드</h1>
+                <p id="quizTitleDisplay" class="text-sm text-gray-500">저장된 파일을 불러와주세요</p>
+            </div>
+            <div class="w-8"></div>
+        </div>
+
+        <div id="uploadZone" class="bg-white border-4 border-dashed border-emerald-100 rounded-[2.5rem] p-12 text-center hover:bg-emerald-50 transition-all cursor-pointer group">
+            <input type="file" id="jsonInput" accept=".json" class="hidden">
+            <div class="bg-emerald-100 text-emerald-600 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-800">JSON 파일 불러오기</h2>
+            <p class="text-gray-500 mt-2">다운로드 받았던 퀴즈 파일을 여기에 넣어주세요.</p>
+        </div>
+
+        <div id="quizContainer" class="hidden space-y-6">
+            <div id="quizContent" class="space-y-6"></div>
+            
+            <button id="submitBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-5 rounded-2xl text-xl shadow-lg shadow-emerald-100 transition-all">
+                답안 제출 및 채점하기
+            </button>
+        </div>
+
+        <div id="resultArea" class="hidden space-y-6 animate-fade-in">
+            <div id="scoreResult" class="text-center text-2xl font-bold p-8 rounded-3xl shadow-inner"></div>
+            <div id="reviewNoteArea" class="space-y-4"></div>
+            <button onclick="location.reload()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-4 rounded-2xl transition-all">
+                다른 파일 불러오기
+            </button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+        // Firebase 설정 (기존 quiz.html과 동일하게 유지)
+        const firebaseConfig = {
+            apiKey: "AIzaSyAsVUHLS6sEbol_ChhQEkgM8XJqn44Gku0", // 여기에 실제 본인의 API Key가 들어가 있어야 합니다.
+            authDomain: "ai-note-generator-d8178.firebaseapp.com",
+            projectId: "ai-note-generator-d8178",
+            storageBucket: "ai-note-generator-d8178.firebasestorage.app",
+            appId: "1:174063925999:web:4cc68529cf770e3bf8f91a"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // 🌟 보안 요원: 로그인 체크
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('main-content').style.display = 'block';
+            } else {
+                alert("로그인이 필요한 서비스입니다.");
+                window.location.href = "login.html";
+            }
+        });
+
+        // ----------------------------------------------------
+        // 퀴즈 기능 로직
+        // ----------------------------------------------------
+        const jsonInput = document.getElementById('jsonInput');
+        const uploadZone = document.getElementById('uploadZone');
+        const quizContainer = document.getElementById('quizContainer');
+        const quizContent = document.getElementById('quizContent');
+        const quizTitleDisplay = document.getElementById('quizTitleDisplay');
+        const submitBtn = document.getElementById('submitBtn');
+        const resultArea = document.getElementById('resultArea');
+        
+        let loadedQuizData = [];
+
+        uploadZone.onclick = () => jsonInput.click();
+
+        jsonInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    // 파일 구조 확인 (전체 객체인지 아니면 배열인지)
+                    loadedQuizData = data.questions || data; 
+                    quizTitleDisplay.innerText = data.title || file.name;
+                    
+                    renderQuiz(loadedQuizData);
+                    
+                    uploadZone.classList.add('hidden');
+                    quizContainer.classList.remove('hidden');
+                } catch (err) {
+                    alert("올바른 퀴즈 파일(JSON)이 아닙니다.");
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        function renderQuiz(quizArray) {
+            quizContent.innerHTML = '';
+            quizArray.forEach((q, index) => {
+                const qDiv = document.createElement('div');
+                qDiv.className = 'bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm';
+                qDiv.id = `q_item_${index}`;
+
+                let optionsHtml = `<div class="grid gap-3 mt-5">`;
+                q.options.forEach((opt, optIdx) => {
+                    optionsHtml += `
+                        <label class="option-label flex items-start p-4 border border-gray-100 rounded-2xl cursor-pointer hover:bg-emerald-50 transition-all bg-gray-50/50">
+                            <input type="radio" name="q_${index}" value="${optIdx}" class="mt-1 w-5 h-5 text-emerald-600 focus:ring-emerald-500">
+                            <span class="ml-4 text-gray-700 font-medium">${opt}</span>
+                        </label>
+                    `;
+                });
+                optionsHtml += `</div>`;
+
+                qDiv.innerHTML = `<h3 class="text-xl font-bold text-gray-800 leading-relaxed"><span class="text-emerald-500 mr-2">Q${index+1}.</span>${q.question}</h3>` + optionsHtml;
+                quizContent.appendChild(qDiv);
+            });
+        }
+
+        submitBtn.onclick = () => {
+            let correctCount = 0;
+            let wrongAnswers = [];
+
+            loadedQuizData.forEach((q, index) => {
+                const selected = document.querySelector(`input[name="q_${index}"]:checked`);
+                const qDiv = document.getElementById(`q_item_${index}`);
+                const labels = qDiv.querySelectorAll('.option-label');
+                
+                let isCorrect = false;
+                const answerIdx = parseInt(q.answer);
+
+                if (selected) {
+                    if (parseInt(selected.value) === answerIdx) {
+                        correctCount++;
+                        isCorrect = true;
+                    }
+                }
+
+                if (!isCorrect) {
+                    wrongAnswers.push({ num: index + 1, data: q });
+                }
+                
+                // 결과 표시 (UI 업데이트)
+                labels.forEach((l, idx) => {
+                    l.style.opacity = "0.5";
+                    if (idx === answerIdx) {
+                        l.classList.add('border-emerald-500', 'bg-emerald-50', 'opacity-100');
+                        l.style.opacity = "1";
+                    }
+                });
+            });
+
+            // 결과 화면 렌더링
+            submitBtn.classList.add('hidden');
+            resultArea.classList.remove('hidden');
+            
+            const scorePercent = Math.round((correctCount / loadedQuizData.length) * 100);
+            const scoreResult = document.getElementById('scoreResult');
+            scoreResult.innerText = `총 ${loadedQuizData.length}문제 중 ${correctCount}문제 정답 (${scorePercent}점)`;
+            scoreResult.className = scorePercent >= 60 ? 'text-center text-2xl font-bold p-8 rounded-3xl bg-emerald-50 text-emerald-700 border border-emerald-100' : 'text-center text-2xl font-bold p-8 rounded-3xl bg-rose-50 text-rose-700 border border-rose-100';
+
+            // 오답 노트 생성
+            const reviewNoteArea = document.getElementById('reviewNoteArea');
+            reviewNoteArea.innerHTML = `<h3 class="text-xl font-bold text-gray-800 mt-4 mb-2">📚 오답 다시보기</h3>`;
+            
+            if (wrongAnswers.length === 0) {
+                reviewNoteArea.innerHTML += `<p class="text-emerald-600 font-bold text-center py-8 text-lg">🎉 만점입니다! 다시 볼 오답이 없어요.</p>`;
+            } else {
+                wrongAnswers.forEach(item => {
+                    reviewNoteArea.innerHTML += `
+                        <div class="bg-white p-6 rounded-2xl border-l-4 border-emerald-500 shadow-sm">
+                            <p class="font-bold text-gray-800 mb-2">Q${item.num}. ${item.data.question}</p>
+                            <p class="text-sm text-emerald-700 font-bold">정답: ${item.data.options[item.data.answer]}</p>
+                            <p class="text-xs text-gray-500 mt-2 bg-gray-50 p-3 rounded-lg leading-relaxed">💡 ${item.data.explanation}</p>
+                        </div>
+                    `;
+                });
+            }
+            
+            resultArea.scrollIntoView({ behavior: 'smooth' });
+        };
+    </script>
+</body>
+</html>
