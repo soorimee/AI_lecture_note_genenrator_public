@@ -525,18 +525,24 @@
             const data = await res.json();
             const validModels = data.models.filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'));
             
-            let best = validModels.find(m => m.name === 'models/gemini-3.0-flash-preview');
-            if (!best) best = validModels.find(m => m.name === 'models/gemini-3.1-flash-lite');
-            if (!best) {
-                best = validModels.find(m => m.name === 'models/gemini-2.5-flash-lite') || 
-                       validModels.find(m => m.name === 'models/gemini-3-flash');
-            }
-            if (!best) best = validModels.find(m => m.name === 'models/gemini-3.1-flash-lite');
-            if (!best) best = validModels.find(m => m.name === 'models/gemma-3-27b');
-            if (!best) best = validModels.find(m => m.name === 'models/gemini-3.1-pro');
-            
-            if (!best) throw new Error("현재 API 키로 사용할 수 있는 유효한 모델이 없습니다.");
-            return best.name; 
+            let best;
+
+                // 1순위: 'gemini-3'과 'flash'가 둘 다 들어가고 'lite'가 아닌 녀석을 최우선으로 잡습니다.
+                best = validModels.find(m => m.name.includes('gemini-3') && m.name.includes('flash') && !m.name.includes('lite'));
+
+                // 2순위: 1순위가 없다면 '3.1'과 'lite'가 들어간 녀석을 잡습니다.
+                if (!best) best = validModels.find(m => m.name.includes('gemini-3.1') && m.name.includes('lite'));
+
+                // 3순위: 그래도 없으면 최후의 보루 2.5 Flash
+                if (!best) best = validModels.find(m => m.name.includes('gemini-2.5') && m.name.includes('flash') && !m.name.includes('lite'));
+
+                if (!best) throw new Error("현재 API 키로 사용할 수 있는 유효한 모델이 없습니다.");
+
+                // (선택사항) F12 개발자 도구 콘솔에서 어떤 모델이 잡혔는지 눈으로 확인하는 용도
+                console.log("✅ 최종 선택된 모델:", best.name);
+
+            return best.name;
+
         }
 
         async function uploadAndPollFile(blob, mimeType, apiKey, displayName) {
