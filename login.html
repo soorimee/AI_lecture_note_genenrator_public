@@ -22,50 +22,32 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
             </svg>
         </div>
-        <h1 class="text-2xl font-bold text-gray-800">수림 AI 통합 서비스</h1>
-        <p class="text-gray-500 text-sm mb-6">이 서비스는 허가된 사람들만 이용 가능합니다.<br>권한을 부여받은 계정으로 로그인해 주세요.</p>
         
-        <form id="firebaseLoginForm" class="space-y-4 text-left">
-            <div>
-                <input type="email" id="loginEmail" placeholder="이메일 주소" required
-                    class="block w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+        <h1 class="text-2xl font-bold text-gray-800">수림 AI 통합 서비스</h1>
+        <p class="text-gray-500 text-sm mb-6">이 서비스는 허가된 관리자만 이용 가능합니다.<br>승인된 Google 계정으로 로그인해 주세요.</p>
+        
+        <div id="loginErrorMessage" class="hidden bg-red-50 text-red-600 border border-red-200 p-3 rounded-lg text-sm font-bold mb-4">
             </div>
-            <div>
-                <input type="password" id="loginPassword" placeholder="비밀번호" required
-                    class="block w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
-            </div>
-            <p id="loginErrorMessage" class="text-red-500 text-xs hidden text-center font-bold"></p>
-            
-            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-sm">
-                기존 이메일로 로그인
-            </button>
-        </form>
 
-        <div class="flex items-center py-2">
-            <div class="flex-grow border-t border-gray-200"></div>
-            <span class="flex-shrink-0 mx-4 text-gray-400 text-sm">기능 테스트 영역</span>
-            <div class="flex-grow border-t border-gray-200"></div>
-        </div>
-
-        <button id="testGoogleLoginBtn" class="w-full bg-emerald-50 border border-emerald-500 hover:bg-emerald-100 text-emerald-700 font-bold py-3 px-4 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-3">
-            <svg class="w-5 h-5" viewBox="0 0 24 24">
+        <button id="googleLoginBtn" class="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-4 px-4 rounded-xl transition-all shadow-sm flex items-center justify-center gap-3">
+            <svg class="w-6 h-6" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            [실험용] 구글 계정으로 로그인 (DB 연동)
+            Google 계정으로 계속하기
         </button>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        // 🔥 API 키 잊지 말고 꼭 넣으세요!
+        // 🔥 Firebase 설정
         const firebaseConfig = {
-            apiKey: "AIzaSyAsVUHLS6sEbol_ChhQEkgM8XJqn44Gku0", 
+            apiKey: "AIzaSyAsVUHLS6sEbol_ChhQEkgM8XJqn44Gku0", // ⚠️ 잊지 말고 수정하세요!
             authDomain: "ai-note-generator-d8178.firebaseapp.com",
             projectId: "ai-note-generator-d8178",
             storageBucket: "ai-note-generator-d8178.firebasestorage.app",
@@ -78,71 +60,52 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const loginForm = document.getElementById('firebaseLoginForm');
-        const loginEmail = document.getElementById('loginEmail');
-        const loginPassword = document.getElementById('loginPassword');
         const errorMsg = document.getElementById('loginErrorMessage');
-        const testGoogleLoginBtn = document.getElementById('testGoogleLoginBtn');
+        const googleLoginBtn = document.getElementById('googleLoginBtn');
 
-        // 🌟 마법의 분리 로직: 사용자가 "무엇으로" 로그인했는지 구분합니다.
+        // 🌟 로그인 유저에 대해 DB 권한(Whitelist) 체크 수행
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                // 사용자가 구글로 로그인했는지, 기존 이메일로 로그인했는지 판별
-                const isGoogleUser = user.providerData.some(provider => provider.providerId === 'google.com');
+                try {
+                    // DB의 'allowed_users' 컬렉션에서 로그인한 이메일 문서 찾기
+                    const userDocRef = doc(db, "allowed_users", user.email);
+                    const userDocSnap = await getDoc(userDocRef);
 
-                if (isGoogleUser) {
-                    // ==========================================
-                    // 🧪 구글 로그인인 경우에만 DB 권한 검사 실행
-                    // ==========================================
-                    try {
-                        const userDocRef = doc(db, "allowed_users", user.email);
-                        const userDocSnap = await getDoc(userDocRef);
-
-                        if (userDocSnap.exists()) {
-                            window.location.href = "index.html"; // 승인 완료, 메인 이동
-                        } else {
-                            await signOut(auth); // 미승인, 강제 로그아웃
-                            errorMsg.innerText = "DB에 승인되지 않은 구글 계정입니다.";
-                            errorMsg.classList.remove('hidden');
-                        }
-                    } catch (error) {
-                        console.error("DB 확인 에러:", error);
+                    if (userDocSnap.exists()) {
+                        // 승인된 계정이면 메인 페이지로 이동
+                        window.location.href = "index.html"; 
+                    } else {
+                        // 미승인 계정이면 즉시 로그아웃 시키고 경고창 띄움
                         await signOut(auth);
-                        errorMsg.innerText = "권한 데이터베이스 접근에 실패했습니다.";
+                        errorMsg.innerText = "사용 권한이 없는 계정입니다. 관리자에게 승인을 요청하세요.";
                         errorMsg.classList.remove('hidden');
                     }
-                } else {
-                    // ==========================================
-                    // ✅ 기존 이메일/비밀번호 로그인인 경우 (DB 무시하고 바로 통과)
-                    // ==========================================
-                    window.location.href = "index.html";
+                } catch (error) {
+                    console.error("권한 확인 실패:", error);
+                    await signOut(auth);
+                    errorMsg.innerText = "데이터베이스 통신 중 오류가 발생했습니다.";
+                    errorMsg.classList.remove('hidden');
                 }
             }
         });
 
-        // (기존) 일반 이메일 로그인 - 100% 원래 코드 그대로 동작
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            errorMsg.classList.add('hidden'); 
-            try {
-                await signInWithEmailAndPassword(auth, loginEmail.value, loginPassword.value);
-            } catch (error) {
-                console.error(error);
-                errorMsg.classList.remove('hidden'); 
-                errorMsg.innerText = "이메일 또는 비밀번호가 올바르지 않습니다.";
-            }
-        });
-
-        // (신규) 실험용 구글 로그인 버튼 이벤트
+        // 🌟 구글 로그인 버튼 클릭 이벤트
         const provider = new GoogleAuthProvider();
-        testGoogleLoginBtn.addEventListener('click', async () => {
-            errorMsg.classList.add('hidden');
+        googleLoginBtn.addEventListener('click', async () => {
+            errorMsg.classList.add('hidden'); // 클릭 시 기존 에러 메시지 숨김
+            
             try {
+                // 구글 로그인 팝업 띄우기
                 await signInWithPopup(auth, provider);
+                // 로그인이 성공하면 위의 onAuthStateChanged가 알아서 작동하여 DB 검사를 시작합니다.
             } catch (error) {
-                console.error(error);
-                errorMsg.classList.remove('hidden');
-                errorMsg.innerText = "구글 로그인 팝업이 취소되었거나 오류가 발생했습니다.";
+                console.error("로그인 에러:", error);
+                
+                // 사용자가 팝업을 그냥 닫은 경우가 아니라면 에러 메시지 출력
+                if(error.code !== 'auth/popup-closed-by-user') {
+                    errorMsg.innerText = "로그인 과정에서 오류가 발생했습니다.";
+                    errorMsg.classList.remove('hidden');
+                }
             }
         });
     </script>
