@@ -525,10 +525,10 @@
             const data = await res.json();
             const validModels = data.models.filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'));
             
-            let best = validModels.find(m => m.name === 'models/gemini-2.5-flash');
-            if (!best) best = validModels.find(m => m.name === 'models/gemini-2.5-flash-lite');
+            let best = validModels.find(m => m.name === 'models/gemini-2.0-flash');
+            if (!best) best = validModels.find(m => m.name === 'models/gemini-2.5-flash');
             if (!best) {
-                best = validModels.find(m => m.name === 'models/gemini-3-flash-preview') || 
+                best = validModels.find(m => m.name === 'models/gemini-2.5-flash-lite') || 
                        validModels.find(m => m.name === 'models/gemini-3-flash');
             }
             if (!best) best = validModels.find(m => m.name === 'models/gemini-3.1-flash-lite');
