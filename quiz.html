@@ -100,6 +100,9 @@
                 <div id="scoreResult" class="text-center text-2xl font-bold p-6 rounded-2xl shadow-sm"></div>
                 <div id="reviewNoteArea" class="hidden space-y-4"></div>
                 <div class="pt-4 mt-6">
+                    <button id="downloadBtn" class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-4 px-4 rounded-xl text-lg transition-colors shadow-sm flex items-center justify-center gap-2 mb-3">
+                        <span class="text-xl">📥</span> 이 퀴즈를 파일로 저장하기 (복습용)
+                    </button>
                     <button id="resetBtn" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-4 px-4 rounded-xl text-lg transition-colors shadow-sm flex items-center justify-center gap-2">
                         <span class="text-xl">🔄</span> 처음으로 돌아가기 (새로운 문제 뽑기)
                     </button>
@@ -139,6 +142,7 @@
 
     <script>
         let globalQuizData = [];
+        let currentPdfName = "My_Medical_Quiz"; // 파일명 기본값
 
         const apiKeyInput = document.getElementById('apiKeyInput');
         const generateBtn = document.getElementById('generateBtn');
@@ -205,6 +209,9 @@
         generateBtn.addEventListener('click', async () => {
             const apiKey = apiKeyInput.value.trim();
             const pdfFile = pdfFileInput.files[0];
+            if (pdfFile) {
+                currentPdfName = pdfFile.name.replace(/\.[^/.]+$/, ""); // 확장자 .pdf 제거
+                }
             const difficulty = document.getElementById('difficulty').value;
             const quizType = document.getElementById('quizType').value;
             let questionCount = parseInt(document.getElementById('questionCount').value) || 10; 
@@ -469,6 +476,26 @@
             submitQuizBtn.classList.remove('hidden');
             
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (globalQuizData.length === 0) return;
+
+    const exportData = {
+        title: currentPdfName,
+        createdAt: new Date().toLocaleString(),
+        questions: globalQuizData
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Quiz_${currentPdfName}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+});
+
         });
     </script>
 </body>
