@@ -476,7 +476,9 @@
             submitQuizBtn.classList.remove('hidden');
             
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            document.getElementById('downloadBtn').addEventListener('click', () => {
+            
+        });
+        document.getElementById('downloadBtn').addEventListener('click', () => {
     if (globalQuizData.length === 0) return;
 
     const exportData = {
@@ -496,7 +498,6 @@
     URL.revokeObjectURL(url);
 });
 
-        });
     </script>
 </body>
 </html>
