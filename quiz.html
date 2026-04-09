@@ -479,7 +479,10 @@
             
         });
         document.getElementById('downloadBtn').addEventListener('click', () => {
-    if (globalQuizData.length === 0) return;
+    if (globalQuizData.length === 0) {
+        alert("저장할 퀴즈 데이터가 없습니다.");
+        return;
+    }
 
     const exportData = {
         title: currentPdfName,
@@ -487,16 +490,32 @@
         questions: globalQuizData
     };
 
+    // 1. 글자 데이터를 JSON 형태로 변환
     const dataStr = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
+
+    // 2. [중요] 사파리를 위해 'application/octet-stream'으로 설정 (강제 다운로드 유도)
+    const blob = new Blob([dataStr], { type: "application/octet-stream" });
     const url = URL.createObjectURL(blob);
     
+    // 3. 가짜 링크 생성
     const link = document.createElement('a');
     link.href = url;
+    
+    // 4. 파일명 설정
     link.download = `Quiz_${currentPdfName}.json`;
+    
+    // 5. [사파리 필수] 링크를 화면에 아주 잠시 추가했다가 클릭하고 삭제
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(url);
+    
+    setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }, 100);
+
+    alert("다운로드가 시작되었습니다. (사파리 상단 '다운로드 항목' 확인)");
 });
+
 
     </script>
 </body>
