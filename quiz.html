@@ -332,11 +332,23 @@
 
             } catch (error) {
                 console.error(error);
-                statusText.innerText = "❌ 문제 생성 실패: " + error.message;
+                
+                // 💡 추가된 부분: 오류 타입(error.name)과 상세 메시지를 명확히 분리하여 출력
+                let errorMessage = error.message;
+                
+                // LLM 프롬프트 앱에서 가장 흔한 JSON 파싱 에러(SyntaxError) 특별 처리
+                if (error.name === 'SyntaxError') {
+                    errorMessage = "AI가 퀴즈 출력 규칙(JSON 형식)을 어겨 화면에 띄울 수 없습니다. 버튼을 눌러 다시 시도해주세요.";
+                }
+
+                statusText.innerHTML = `❌ 문제 생성 실패<br>
+                                        <span class="text-sm font-normal text-red-400">[오류 유형: ${error.name}]</span><br>
+                                        <span class="text-sm font-normal text-red-500">${errorMessage}</span>`;
                 statusText.classList.replace('text-blue-600', 'text-red-500');
             } finally {
                 generateBtn.disabled = false;
             }
+
         });
 
         function renderQuiz(quizArray, quizType) {
