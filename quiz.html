@@ -588,8 +588,8 @@ document.getElementById('downloadWrongBtn').addEventListener('click', () => {
     
     const link = document.createElement('a');
     link.href = url;
-    // 파일명에 [Review]를 붙여 원본 퀴즈 파일과 헷갈리지 않게 함
-    link.download = `[Review]_${currentPdfName}.json`; 
+    // 파일명에 [오답]를 붙여 원본 퀴즈 파일과 헷갈리지 않게 함
+    link.download = `[오답]_${currentPdfName}.json`; 
     
     document.body.appendChild(link);
     link.click();
@@ -599,7 +599,7 @@ document.getElementById('downloadWrongBtn').addEventListener('click', () => {
         URL.revokeObjectURL(url);
     }, 100);
 
-    alert("오답노트 JSON 다운로드가 시작되었습니다.\n(재시험용 페이지에서 불러와주세요!)");
+    alert("오답노트 JSON 다운로드가 시작되었습니다.\n(리뷰 페이지에서 불러와주세요!)");
 });
 
     </script>
