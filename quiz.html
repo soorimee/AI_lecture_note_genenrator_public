@@ -102,6 +102,10 @@
                     <button id="downloadBtn" class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-4 px-4 rounded-xl text-lg transition-colors shadow-sm flex items-center justify-center gap-2 mb-3">
                         <span class="text-xl">📥</span> 이 퀴즈를 파일로 저장하기 (복습용)
                     </button>
+                    
+                    <button id="downloadWrongBtn" class="hidden w-full bg-red-50 hover:bg-red-100 text-red-700 font-bold py-4 px-4 rounded-xl text-lg transition-colors shadow-sm flex items-center justify-center gap-2 mb-3">
+                        <span class="text-xl">🚨</span> 오답 문제만 따로 저장하기
+                    </button>
                     <button id="resetBtn" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-4 px-4 rounded-xl text-lg transition-colors shadow-sm flex items-center justify-center gap-2">
                         <span class="text-xl">🔄</span> 처음으로 돌아가기 (새로운 문제 뽑기)
                     </button>
@@ -140,6 +144,7 @@
     <script>
         let globalQuizData = [];
         let currentPdfName = "My_Medical_Quiz"; 
+        let globalWrongAnswerData = [];
 
         const apiKeyInput = document.getElementById('apiKeyInput');
         const generateBtn = document.getElementById('generateBtn');
@@ -503,7 +508,15 @@ ${caseStudyPrompt}
                 reviewNoteArea.innerHTML = reviewHtml;
             }
             reviewNoteArea.classList.remove('hidden');
-            
+            globalWrongAnswersData = wrongAnswersData.map(item => item.data); // 다운로드하기 편하게 data 알맹이만 추출
+    
+            const downloadWrongBtn = document.getElementById('downloadWrongBtn');
+            if (globalWrongAnswersData.length > 0) {
+                downloadWrongBtn.classList.remove('hidden'); // 오답이 있으면 버튼 표시
+            } else {
+                downloadWrongBtn.classList.add('hidden'); // 다 맞았으면 버튼 숨김
+            }
+
             setTimeout(() => {
                 resultArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 300);
@@ -554,6 +567,41 @@ ${caseStudyPrompt}
 
             alert("다운로드가 시작되었습니다. (사파리 상단 '다운로드 항목' 확인)");
         });
+        // ✅ 오답 다운로드 버튼 클릭 이벤트 리스너 (JSON 형식 유지)
+document.getElementById('downloadWrongBtn').addEventListener('click', () => {
+    // globalWrongAnswersData는 3단계에서 저장한 오답 데이터 전역 변수
+    if (globalWrongAnswersData.length === 0) {
+        alert("저장할 오답 데이터가 없습니다.");
+        return;
+    }
+
+    // 다른 HTML(재시험 페이지)에서 기존 형식과 동일하게 읽을 수 있도록 구조를 맞춤
+    const exportData = {
+        title: currentPdfName + " (오답노트)",
+        createdAt: new Date().toLocaleString(),
+        questions: globalWrongAnswersData // 오답 데이터(배열)만 포함
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" }); // 타입을 JSON으로 명시
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    // 파일명에 [Review]를 붙여 원본 퀴즈 파일과 헷갈리지 않게 함
+    link.download = `[Review]_${currentPdfName}.json`; 
+    
+    document.body.appendChild(link);
+    link.click();
+    
+    setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }, 100);
+
+    alert("오답노트 JSON 다운로드가 시작되었습니다.\n(재시험용 페이지에서 불러와주세요!)");
+});
+
     </script>
 </body>
 </html>
