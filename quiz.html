@@ -257,13 +257,13 @@
                     
                     // 2순위: Pro 권한이 없는 경우(무료 등급), 3.1 flash-preview 등 고성능 Flash로 차선책 제공
                     if (!bestModel) {
-                        bestModel = validModels.find(m => m.name === 'models/gemini-3.1-flash-preview') ||
-                                    validModels.find(m => m.name === 'models/gemini-3.1-flash') ||
+                        bestModel = validModels.find(m => m.name === 'models/gemini-3-flash-preview') ||
+                                    validModels.find(m => m.name === 'models/gemini-3.1-flash-lite') ||
                                     validModels.find(m => m.name === 'models/gemini-2.5-flash');
                     }
                 } else {
                     // 쉬움/보통: 빠르고 효율적인 모델 선택
-                    bestModel = validModels.find(m => m.name === 'models/gemini-3.1-flash-lite') || 
+                    bestModel = validModels.find(m => m.name === 'models/gemini-3-flash-preview') || 
                                 validModels.find(m => m.name === 'models/gemini-2.5-flash-lite') || 
                                 validModels.find(m => m.name === 'models/gemini-3-flash-preview') ||
                                 validModels.find(m => m.name.includes('flash'));
